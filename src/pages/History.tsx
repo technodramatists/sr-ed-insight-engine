@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { Run } from "@/types/sred";
-import { ArrowLeft, Calendar, User, Cpu, FlaskConical } from "lucide-react";
+import { ArrowLeft, Calendar, User, FlaskConical, Download } from "lucide-react";
 import { format } from "date-fns";
+import { exportAllAsJSON } from "@/lib/exportRun";
 
 const History = () => {
   const [runs, setRuns] = useState<Run[]>([]);
@@ -41,13 +42,19 @@ const History = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-1">
             <FlaskConical className="h-6 w-6 text-primary" />
             <div>
               <h1 className="text-xl font-semibold">Run History</h1>
               <p className="text-sm text-muted-foreground">{runs.length} runs recorded</p>
             </div>
           </div>
+          {runs.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => exportAllAsJSON(runs)}>
+              <Download className="h-4 w-4 mr-2" />
+              Export All (JSON)
+            </Button>
+          )}
         </div>
       </header>
 

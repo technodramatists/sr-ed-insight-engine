@@ -5,11 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ResultsDisplay } from "@/components/ResultsDisplay";
 import { supabase } from "@/integrations/supabase/client";
 import { Run, SREDOutput } from "@/types/sred";
-import { ArrowLeft, Calendar, User, FlaskConical, FileText, Settings } from "lucide-react";
+import { ArrowLeft, Calendar, User, FlaskConical, FileText, Settings, Download } from "lucide-react";
 import { format } from "date-fns";
+import { exportAsJSON, exportAsCSV, exportAsHTML } from "@/lib/exportRun";
 
 const RunDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -99,9 +106,30 @@ const RunDetail = () => {
               </div>
             </div>
           </div>
-          <Badge variant="outline" className="text-sm">
-            {run.model_used}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-sm">
+              {run.model_used}
+            </Badge>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => exportAsHTML(run)}>
+                  📄 Download Report (HTML)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportAsJSON(run)}>
+                  📦 Download JSON
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportAsCSV(run)}>
+                  📊 Download CSV
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
 
