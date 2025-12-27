@@ -24,9 +24,19 @@ interface TranscriptFormProps {
     promptVersion?: string;
   }) => void;
   isProcessing: boolean;
+  elapsedSeconds?: number;
 }
 
-export function TranscriptForm({ onSubmit, isProcessing }: TranscriptFormProps) {
+const formatElapsedTime = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins > 0) {
+    return `${mins}m ${secs}s`;
+  }
+  return `${secs}s`;
+};
+
+export function TranscriptForm({ onSubmit, isProcessing, elapsedSeconds = 0 }: TranscriptFormProps) {
   const [transcript, setTranscript] = useState("");
   const [clientName, setClientName] = useState("");
   const [fiscalYear, setFiscalYear] = useState("");
@@ -169,14 +179,14 @@ export function TranscriptForm({ onSubmit, isProcessing }: TranscriptFormProps) 
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Model</Label>
-            <div className="flex gap-2">
+          <div className="flex gap-2">
               <Button
                 type="button"
                 variant={model === 'openai' ? 'default' : 'outline'}
                 onClick={() => setModel('openai')}
                 className="flex-1"
               >
-                OpenAI (GPT-5)
+                GPT-5
               </Button>
               <Button
                 type="button"
@@ -184,7 +194,7 @@ export function TranscriptForm({ onSubmit, isProcessing }: TranscriptFormProps) 
                 onClick={() => setModel('claude')}
                 className="flex-1"
               >
-                Claude
+                Gemini Pro
               </Button>
               <Button
                 type="button"
@@ -192,7 +202,7 @@ export function TranscriptForm({ onSubmit, isProcessing }: TranscriptFormProps) 
                 onClick={() => setModel('gemini')}
                 className="flex-1"
               >
-                Gemini
+                Gemini Flash
               </Button>
             </div>
           </div>
@@ -237,24 +247,31 @@ export function TranscriptForm({ onSubmit, isProcessing }: TranscriptFormProps) 
       </Card>
 
       {/* Submit Button */}
-      <Button 
-        onClick={handleSubmit} 
-        disabled={!canSubmit || isProcessing}
-        size="lg"
-        className="w-full gap-2"
-      >
-        {isProcessing ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Processing...
-          </>
-        ) : (
-          <>
-            <Play className="h-4 w-4" />
-            Run
-          </>
+      <div className="space-y-2">
+        <Button 
+          onClick={handleSubmit} 
+          disabled={!canSubmit || isProcessing}
+          size="lg"
+          className="w-full gap-2"
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Processing... {formatElapsedTime(elapsedSeconds)}
+            </>
+          ) : (
+            <>
+              <Play className="h-4 w-4" />
+              Run
+            </>
+          )}
+        </Button>
+        {isProcessing && (
+          <p className="text-xs text-muted-foreground text-center">
+            Long transcripts may take several minutes to process
+          </p>
         )}
-      </Button>
+      </div>
     </div>
   );
 }

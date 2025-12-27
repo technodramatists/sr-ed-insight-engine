@@ -8,8 +8,15 @@ const corsHeaders = {
 // Model mapping for Lovable AI Gateway
 const MODEL_MAP: Record<string, string> = {
   'openai': 'openai/gpt-5',
-  'claude': 'google/gemini-2.5-pro', // Using Gemini Pro as Claude equivalent
-  'gemini': 'google/gemini-2.5-flash',
+  'claude': 'google/gemini-2.5-pro', // Gemini Pro (most capable)
+  'gemini': 'google/gemini-2.5-flash', // Gemini Flash (faster)
+};
+
+// Model display names for logging
+const MODEL_DISPLAY_NAMES: Record<string, string> = {
+  'openai/gpt-5': 'GPT-5',
+  'google/gemini-2.5-pro': 'Gemini Pro',
+  'google/gemini-2.5-flash': 'Gemini Flash',
 };
 
 serve(async (req) => {
@@ -30,7 +37,8 @@ serve(async (req) => {
     }
 
     const selectedModel = MODEL_MAP[model] || 'google/gemini-2.5-flash';
-    console.log(`Using gateway model: ${selectedModel}`);
+    const displayName = MODEL_DISPLAY_NAMES[selectedModel] || selectedModel;
+    console.log(`Using model: ${displayName} (${selectedModel})`);
 
     // Build the full prompt with transcript and context
     const fullPrompt = `

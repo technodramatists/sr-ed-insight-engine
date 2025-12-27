@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { TranscriptForm } from "@/components/TranscriptForm";
 import { ResultsDisplay } from "@/components/ResultsDisplay";
@@ -9,12 +9,30 @@ import { SREDOutput, ModelType } from "@/types/sred";
 import { Json } from "@/integrations/supabase/types";
 import { History, FlaskConical } from "lucide-react";
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
 const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [results, setResults] = useState<{ output: SREDOutput; modelUsed: string } | null>(null);
   const [lastRunId, setLastRunId] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
 
   const handleSubmit = async (data: {
     transcript: string;
@@ -32,21 +50,44 @@ const Index = () => {
     setIsProcessing(true);
     setResults(null);
     setLastRunId(null);
+    setElapsedSeconds(0);
+
+    // Start elapsed time counter
+    timerRef.current = setInterval(() => {
+      setElapsedSeconds(prev => prev + 1);
+    }, 1000);
+
+    // Create abort controller with 5 minute timeout
+    abortControllerRef.current = new AbortController();
+    const timeoutId = setTimeout(() => {
+      abortControllerRef.current?.abort();
+    }, 5 * 60 * 1000); // 5 minutes
 
     try {
-      // Call the edge function to process the transcript
-      const { data: responseData, error: functionError } = await supabase.functions.invoke('process-transcript', {
-        body: {
+      // Call the edge function using direct fetch with longer timeout
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/process-transcript`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
           transcript: data.transcript,
           contextPack: data.contextPack,
           model: data.model,
           systemPrompt: data.systemPrompt,
-        },
+        }),
+        signal: abortControllerRef.current.signal,
       });
 
-      if (functionError) {
-        throw new Error(functionError.message);
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Request failed with status ${response.status}`);
       }
+
+      const responseData = await response.json();
 
       if (responseData.error) {
         throw new Error(responseData.error);
@@ -98,13 +139,27 @@ const Index = () => {
 
     } catch (error) {
       console.error('Processing error:', error);
+      
+      let errorMessage = "An unexpected error occurred";
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = "Request timed out after 5 minutes. The transcript may be too long or complex.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "Processing failed",
-        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
       setIsProcessing(false);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     }
   };
 
@@ -132,7 +187,7 @@ const Index = () => {
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Left Column: Input Form */}
           <div>
-            <TranscriptForm onSubmit={handleSubmit} isProcessing={isProcessing} />
+            <TranscriptForm onSubmit={handleSubmit} isProcessing={isProcessing} elapsedSeconds={elapsedSeconds} />
           </div>
 
           {/* Right Column: Results */}
