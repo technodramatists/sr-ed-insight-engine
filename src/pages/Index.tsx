@@ -4,15 +4,16 @@ import { TranscriptForm } from "@/components/TranscriptForm";
 import { ResultsDisplay } from "@/components/ResultsDisplay";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useRequireAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { SREDOutput, ModelType } from "@/types/sred";
 import { Json } from "@/integrations/supabase/types";
-import { History, FlaskConical } from "lucide-react";
+import { History, FlaskConical, LogOut, Loader2 } from "lucide-react";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const Index = () => {
+  const { user, session, loading, signOut } = useRequireAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [results, setResults] = useState<{ output: SREDOutput; modelUsed: string } | null>(null);
@@ -34,6 +35,15 @@ const Index = () => {
     };
   }, []);
 
+  // Show loading state while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   const handleSubmit = async (data: {
     transcript: string;
     clientName?: string;
@@ -47,6 +57,16 @@ const Index = () => {
     promptName?: string;
     promptVersion?: string;
   }) => {
+    if (!session?.access_token) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to process transcripts.",
+        variant: "destructive",
+      });
+      navigate("/auth");
+      return;
+    }
+
     setIsProcessing(true);
     setResults(null);
     setLastRunId(null);
@@ -64,12 +84,12 @@ const Index = () => {
     }, 5 * 60 * 1000); // 5 minutes
 
     try {
-      // Call the edge function using direct fetch with longer timeout
+      // Call the edge function with authenticated session token
       const response = await fetch(`${SUPABASE_URL}/functions/v1/process-transcript`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           transcript: data.transcript,
@@ -84,6 +104,15 @@ const Index = () => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+          toast({
+            title: "Session expired",
+            description: "Please log in again.",
+            variant: "destructive",
+          });
+          navigate("/auth");
+          return;
+        }
         throw new Error(errorData.error || `Request failed with status ${response.status}`);
       }
 
@@ -175,10 +204,18 @@ const Index = () => {
               <p className="text-sm text-muted-foreground">Evaluation Environment v0</p>
             </div>
           </div>
-          <Button variant="outline" onClick={() => navigate('/history')} className="gap-2">
-            <History className="h-4 w-4" />
-            History
-          </Button>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              {user?.email}
+            </span>
+            <Button variant="outline" onClick={() => navigate('/history')} className="gap-2">
+              <History className="h-4 w-4" />
+              History
+            </Button>
+            <Button variant="ghost" size="icon" onClick={signOut} title="Sign out">
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </header>
 

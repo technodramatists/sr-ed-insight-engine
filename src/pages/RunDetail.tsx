@@ -13,22 +13,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ResultsDisplay } from "@/components/ResultsDisplay";
 import { supabase } from "@/integrations/supabase/client";
+import { useRequireAuth } from "@/hooks/use-auth";
 import { Run, SREDOutput } from "@/types/sred";
-import { ArrowLeft, Calendar, User, FlaskConical, FileText, Settings, Download } from "lucide-react";
+import { ArrowLeft, Calendar, User, FlaskConical, FileText, Settings, Download, LogOut, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { exportAsJSON, exportAsCSV, exportAsHTML } from "@/lib/exportRun";
 
 const RunDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const { user, loading: authLoading, signOut } = useRequireAuth();
   const [run, setRun] = useState<Run | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (id) {
+    if (id && !authLoading && user) {
       loadRun(id);
     }
-  }, [id]);
+  }, [id, authLoading, user]);
 
   const loadRun = async (runId: string) => {
     setIsLoading(true);
@@ -46,10 +48,10 @@ const RunDetail = () => {
     setIsLoading(false);
   };
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">Loading run...</div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -107,6 +109,9 @@ const RunDetail = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              {user?.email}
+            </span>
             <Badge variant="outline" className="text-sm">
               {run.model_used}
             </Badge>
@@ -129,6 +134,9 @@ const RunDetail = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button variant="ghost" size="icon" onClick={signOut} title="Sign out">
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </header>

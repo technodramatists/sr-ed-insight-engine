@@ -4,19 +4,23 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { useRequireAuth } from "@/hooks/use-auth";
 import { Run } from "@/types/sred";
-import { ArrowLeft, Calendar, User, FlaskConical, Download } from "lucide-react";
+import { ArrowLeft, Calendar, User, FlaskConical, Download, LogOut, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { exportAllAsJSON } from "@/lib/exportRun";
 
 const History = () => {
+  const { user, loading: authLoading, signOut } = useRequireAuth();
   const [runs, setRuns] = useState<Run[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadRuns();
-  }, []);
+    if (!authLoading && user) {
+      loadRuns();
+    }
+  }, [authLoading, user]);
 
   const loadRuns = async () => {
     setIsLoading(true);
@@ -34,6 +38,14 @@ const History = () => {
     setIsLoading(false);
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -49,20 +61,28 @@ const History = () => {
               <p className="text-sm text-muted-foreground">{runs.length} runs recorded</p>
             </div>
           </div>
-          {runs.length > 0 && (
-            <Button variant="outline" size="sm" onClick={() => exportAllAsJSON(runs)}>
-              <Download className="h-4 w-4 mr-2" />
-              Export All (JSON)
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              {user?.email}
+            </span>
+            {runs.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => exportAllAsJSON(runs)}>
+                <Download className="h-4 w-4 mr-2" />
+                Export All (JSON)
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" onClick={signOut} title="Sign out">
+              <LogOut className="h-4 w-4" />
             </Button>
-          )}
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         {isLoading ? (
-          <div className="text-center py-12 text-muted-foreground">
-            Loading runs...
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : runs.length === 0 ? (
           <div className="text-center py-12">
