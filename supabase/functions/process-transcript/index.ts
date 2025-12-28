@@ -1,9 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation limits
+const MAX_TRANSCRIPT_LENGTH = 500000; // 500KB for long meeting transcripts
+const MAX_CONTEXT_LENGTH = 100000; // 100KB
+const MAX_PROMPT_LENGTH = 10000; // 10KB
+const ALLOWED_MODELS = ['openai', 'claude', 'gemini'];
 
 // Model mapping for Lovable AI Gateway
 const MODEL_MAP: Record<string, string> = {
@@ -25,18 +32,102 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error('No authorization header provided');
+      return new Response(JSON.stringify({ error: 'Unauthorized - no token provided' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Create Supabase client and verify user
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.error('Authentication failed:', authError?.message || 'No user found');
+      return new Response(JSON.stringify({ error: 'Unauthorized - invalid token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log(`Authenticated user: ${user.email}`);
+
     const { transcript, contextPack, model, systemPrompt } = await req.json();
     
-    console.log(`Processing transcript with model: ${model}`);
-    console.log(`Transcript length: ${transcript?.length || 0} chars`);
-    console.log(`Context pack length: ${contextPack?.length || 0} chars`);
+    // Input validation - check required fields
+    if (!transcript || typeof transcript !== 'string') {
+      return new Response(JSON.stringify({ error: 'Transcript is required and must be a string' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!contextPack || typeof contextPack !== 'string') {
+      return new Response(JSON.stringify({ error: 'Context pack is required and must be a string' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Input validation - check lengths
+    if (transcript.length > MAX_TRANSCRIPT_LENGTH) {
+      return new Response(JSON.stringify({ 
+        error: `Transcript exceeds maximum length of ${MAX_TRANSCRIPT_LENGTH} characters` 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (contextPack.length > MAX_CONTEXT_LENGTH) {
+      return new Response(JSON.stringify({ 
+        error: `Context pack exceeds maximum length of ${MAX_CONTEXT_LENGTH} characters` 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const promptToUse = systemPrompt || '';
+    if (promptToUse.length > MAX_PROMPT_LENGTH) {
+      return new Response(JSON.stringify({ 
+        error: `System prompt exceeds maximum length of ${MAX_PROMPT_LENGTH} characters` 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate model selection
+    const modelKey = model || 'gemini';
+    if (!ALLOWED_MODELS.includes(modelKey)) {
+      return new Response(JSON.stringify({ 
+        error: `Invalid model selection. Allowed models: ${ALLOWED_MODELS.join(', ')}` 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log(`Processing transcript for user ${user.email} with model: ${modelKey}`);
+    console.log(`Transcript length: ${transcript.length} chars`);
+    console.log(`Context pack length: ${contextPack.length} chars`);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    const selectedModel = MODEL_MAP[model] || 'google/gemini-2.5-flash';
+    const selectedModel = MODEL_MAP[modelKey] || 'google/gemini-2.5-flash';
     const displayName = MODEL_DISPLAY_NAMES[selectedModel] || selectedModel;
     console.log(`Using model: ${displayName} (${selectedModel})`);
 
@@ -181,7 +272,7 @@ CRITICAL RULES:
         messages: [
           { 
             role: 'system', 
-            content: systemPrompt || 'You are an expert SR&ED technical analyst. Your job is to extract structured, cited information from interview transcripts to support SR&ED claim drafting. Be thorough but only include content that can be directly cited from the transcript.'
+            content: promptToUse || 'You are an expert SR&ED technical analyst. Your job is to extract structured, cited information from interview transcripts to support SR&ED claim drafting. Be thorough but only include content that can be directly cited from the transcript.'
           },
           { role: 'user', content: fullPrompt }
         ],
