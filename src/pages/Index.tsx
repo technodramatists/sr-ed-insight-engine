@@ -16,7 +16,7 @@ const Index = () => {
   const { user, session, loading, signOut } = useRequireAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [results, setResults] = useState<{ output: SREDOutput; modelUsed: string } | null>(null);
+  const [results, setResults] = useState<{ output?: SREDOutput; content?: string; modelUsed: string } | null>(null);
   const [lastRunId, setLastRunId] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -56,6 +56,7 @@ const Index = () => {
     systemPrompt: string;
     promptName?: string;
     promptVersion?: string;
+    disableStructuredOutput: boolean;
   }) => {
     if (!session?.access_token) {
       toast({
@@ -96,6 +97,7 @@ const Index = () => {
           contextPack: data.contextPack,
           model: data.model,
           systemPrompt: data.systemPrompt,
+          disableStructuredOutput: data.disableStructuredOutput,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -122,8 +124,21 @@ const Index = () => {
         throw new Error(responseData.error);
       }
 
-      const output = responseData.output as SREDOutput;
       const modelUsed = responseData.model_used;
+
+      // Handle unstructured output (raw content)
+      if (data.disableStructuredOutput) {
+        const content = responseData.content as string;
+        setResults({ content, modelUsed });
+        toast({
+          title: "Run completed",
+          description: "Raw output returned (structured output disabled).",
+        });
+        return;
+      }
+
+      // Handle structured output
+      const output = responseData.output as SREDOutput;
 
       // Save the run to the database
       const { data: insertedRun, error: dbError } = await supabase
@@ -230,7 +245,19 @@ const Index = () => {
           {/* Right Column: Results */}
           <div>
             {results ? (
-              <ResultsDisplay output={results.output} modelUsed={results.modelUsed} />
+              results.content ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold">Raw Output</h2>
+                    <span className="text-sm text-muted-foreground">{results.modelUsed}</span>
+                  </div>
+                  <div className="bg-muted/30 border rounded-lg p-4 overflow-auto max-h-[70vh]">
+                    <pre className="whitespace-pre-wrap text-sm font-mono">{results.content}</pre>
+                  </div>
+                </div>
+              ) : results.output ? (
+                <ResultsDisplay output={results.output} modelUsed={results.modelUsed} />
+              ) : null
             ) : (
               <div className="h-full flex items-center justify-center border-2 border-dashed rounded-lg bg-muted/20 min-h-[400px]">
                 <div className="text-center text-muted-foreground">
