@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -22,6 +23,7 @@ interface TranscriptFormProps {
     systemPrompt: string;
     promptName?: string;
     promptVersion?: string;
+    disableStructuredOutput: boolean;
   }) => void;
   isProcessing: boolean;
   elapsedSeconds?: number;
@@ -52,6 +54,8 @@ export function TranscriptForm({ onSubmit, isProcessing, elapsedSeconds = 0 }: T
   const [promptName, setPromptName] = useState("Default SRED Analyst");
   const [promptVersion, setPromptVersion] = useState("0.1");
   
+  const [disableStructuredOutput, setDisableStructuredOutput] = useState(true);
+  
   const [showMetadata, setShowMetadata] = useState(false);
   const [showPromptConfig, setShowPromptConfig] = useState(false);
 
@@ -72,6 +76,7 @@ export function TranscriptForm({ onSubmit, isProcessing, elapsedSeconds = 0 }: T
       systemPrompt,
       promptName: promptName || undefined,
       promptVersion: promptVersion || undefined,
+      disableStructuredOutput,
     });
   };
 
@@ -179,7 +184,7 @@ export function TranscriptForm({ onSubmit, isProcessing, elapsedSeconds = 0 }: T
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Model</Label>
-          <div className="flex gap-2">
+            <div className="flex gap-2">
               <Button
                 type="button"
                 variant={model === 'openai' ? 'default' : 'outline'}
@@ -205,6 +210,17 @@ export function TranscriptForm({ onSubmit, isProcessing, elapsedSeconds = 0 }: T
                 Gemini Flash
               </Button>
             </div>
+          </div>
+
+          <div className="flex items-center space-x-2 pt-2">
+            <Checkbox
+              id="disableStructuredOutput"
+              checked={disableStructuredOutput}
+              onCheckedChange={(checked) => setDisableStructuredOutput(checked === true)}
+            />
+            <Label htmlFor="disableStructuredOutput" className="text-sm font-normal cursor-pointer">
+              Disable structured output (JSON)
+            </Label>
           </div>
 
           <Collapsible open={showPromptConfig} onOpenChange={setShowPromptConfig}>

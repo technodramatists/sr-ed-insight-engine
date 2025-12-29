@@ -61,7 +61,7 @@ serve(async (req) => {
 
     console.log(`Authenticated user: ${user.email}`);
 
-    const { transcript, contextPack, model, systemPrompt } = await req.json();
+    const { transcript, contextPack, model, systemPrompt, disableStructuredOutput = true } = await req.json();
     
     // Input validation - check required fields
     if (!transcript || typeof transcript !== 'string') {
@@ -121,6 +121,7 @@ serve(async (req) => {
     console.log(`Processing transcript for user ${user.email} with model: ${modelKey}`);
     console.log(`Transcript length: ${transcript.length} chars`);
     console.log(`Context pack length: ${contextPack.length} chars`);
+    console.log(`Structured output: ${!disableStructuredOutput}`);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -132,7 +133,7 @@ serve(async (req) => {
     console.log(`Using model: ${displayName} (${selectedModel})`);
 
     // Build the full prompt with transcript and context
-    const fullPrompt = `
+    let fullPrompt = `
 ${contextPack}
 
 ---
@@ -140,6 +141,11 @@ ${contextPack}
 TRANSCRIPT TO ANALYZE:
 
 ${transcript}
+`;
+
+    // Only add JSON schema instructions if structured output is enabled
+    if (!disableStructuredOutput) {
+      fullPrompt += `
 
 ---
 
@@ -260,6 +266,7 @@ CRITICAL RULES:
 4. Use the exact structure shown above
 5. All string values must be properly escaped for JSON
 `;
+    }
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -303,6 +310,17 @@ CRITICAL RULES:
     const content = data.choices?.[0]?.message?.content;
     
     console.log('Raw LLM response length:', content?.length || 0);
+
+    // If structured output is disabled, return raw content
+    if (disableStructuredOutput) {
+      console.log('Returning raw content (structured output disabled)');
+      return new Response(JSON.stringify({ 
+        content: content,
+        model_used: selectedModel 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Try to parse the JSON from the response
     let parsedOutput;
