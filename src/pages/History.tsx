@@ -105,6 +105,9 @@ const History = () => {
                   <div className="flex items-start justify-between">
                     <div className="space-y-2">
                       <div className="flex items-center gap-3">
+                        <Badge variant={run.is_structured ? "default" : "secondary"}>
+                          {run.is_structured ? "Structured" : "Raw"}
+                        </Badge>
                         <Badge variant="outline">{run.model_used}</Badge>
                         {run.client_name && (
                           <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -119,7 +122,10 @@ const History = () => {
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground line-clamp-2">
-                        {run.transcript_text.slice(0, 200)}...
+                        {run.is_structured 
+                          ? `${run.transcript_text.slice(0, 200)}...`
+                          : run.raw_output?.slice(0, 200) + '...'
+                        }
                       </p>
                     </div>
                     <div className="flex items-center gap-1 text-sm text-muted-foreground shrink-0">
@@ -128,21 +134,23 @@ const History = () => {
                     </div>
                   </div>
                   
-                  {/* Quick stats */}
-                  <div className="flex gap-4 mt-3 text-xs text-muted-foreground">
-                    <span>
-                      {(run.output_candidate_projects as unknown[])?.length || 0} projects
-                    </span>
-                    <span>
-                      {(run.output_big_picture as unknown[])?.length || 0} big picture items
-                    </span>
-                    <span>
-                      {(run.output_work_performed as unknown[])?.length || 0} work items
-                    </span>
-                    <span>
-                      {(run.output_iterations as unknown[])?.length || 0} iterations
-                    </span>
-                  </div>
+                  {/* Quick stats - only show for structured runs */}
+                  {run.is_structured && (
+                    <div className="flex gap-4 mt-3 text-xs text-muted-foreground">
+                      <span>
+                        {(run.output_candidate_projects as unknown[])?.length || 0} projects
+                      </span>
+                      <span>
+                        {(run.output_big_picture as unknown[])?.length || 0} big picture items
+                      </span>
+                      <span>
+                        {(run.output_work_performed as unknown[])?.length || 0} work items
+                      </span>
+                      <span>
+                        {(run.output_iterations as unknown[])?.length || 0} iterations
+                      </span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}

@@ -129,11 +129,44 @@ const Index = () => {
       // Handle unstructured output (raw content)
       if (data.disableStructuredOutput) {
         const content = responseData.content as string;
+        
+        // Save the raw run to the database
+        const { data: insertedRun, error: dbError } = await supabase
+          .from('runs')
+          .insert([{
+            transcript_text: data.transcript,
+            client_name: data.clientName,
+            fiscal_year: data.fiscalYear,
+            meeting_type: data.meetingType,
+            context_pack_text: data.contextPack,
+            context_pack_name: data.contextPackName,
+            context_pack_version: data.contextPackVersion,
+            model_used: modelUsed,
+            prompt_text: data.systemPrompt,
+            prompt_name: data.promptName,
+            prompt_version: data.promptVersion,
+            raw_output: content,
+            is_structured: false,
+          }])
+          .select('id')
+          .single();
+
+        if (dbError) {
+          console.error('Failed to save raw run:', dbError);
+          toast({
+            title: "Warning",
+            description: "Raw output processed but failed to save to history.",
+            variant: "destructive",
+          });
+        } else {
+          setLastRunId(insertedRun.id);
+          toast({
+            title: "Run completed",
+            description: "Raw output saved to history.",
+          });
+        }
+
         setResults({ content, modelUsed });
-        toast({
-          title: "Run completed",
-          description: "Raw output returned (structured output disabled).",
-        });
         return;
       }
 
@@ -160,6 +193,7 @@ const Index = () => {
           output_work_performed: output.work_performed as unknown as Json,
           output_iterations: output.iterations as unknown as Json,
           output_drafting_material: output.drafting_material as unknown as Json,
+          is_structured: true,
         }])
         .select('id')
         .single();

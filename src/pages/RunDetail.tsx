@@ -151,7 +151,24 @@ const RunDetail = () => {
           </TabsList>
 
           <TabsContent value="results">
-            <ResultsDisplay output={output} modelUsed={run.model_used} />
+            {run.is_structured ? (
+              <ResultsDisplay output={output} modelUsed={run.model_used} />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <FileText className="h-5 w-5" />
+                    Raw Output
+                    <Badge variant="secondary" className="ml-2">Unstructured</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <pre className="whitespace-pre-wrap text-sm bg-muted/50 p-4 rounded-lg max-h-[600px] overflow-auto font-mono">
+                    {run.raw_output}
+                  </pre>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="inputs" className="space-y-6">

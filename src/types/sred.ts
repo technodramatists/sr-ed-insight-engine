@@ -86,6 +86,8 @@ export interface Run {
   eval_notes_iterations?: string;
   eval_notes_drafting_material?: string;
   eval_notes_overall?: string;
+  raw_output?: string;
+  is_structured: boolean;
 }
 
 export type ModelType = 'openai' | 'claude' | 'gemini';
