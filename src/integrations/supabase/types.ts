@@ -34,6 +34,7 @@ export type Database = {
           eval_work_performed: number | null
           fiscal_year: string | null
           id: string
+          is_structured: boolean
           meeting_type: string | null
           model_used: string
           output_big_picture: Json | null
@@ -44,6 +45,7 @@ export type Database = {
           prompt_name: string | null
           prompt_text: string
           prompt_version: string | null
+          raw_output: string | null
           transcript_text: string
         }
         Insert: {
@@ -65,6 +67,7 @@ export type Database = {
           eval_work_performed?: number | null
           fiscal_year?: string | null
           id?: string
+          is_structured?: boolean
           meeting_type?: string | null
           model_used: string
           output_big_picture?: Json | null
@@ -75,6 +78,7 @@ export type Database = {
           prompt_name?: string | null
           prompt_text: string
           prompt_version?: string | null
+          raw_output?: string | null
           transcript_text: string
         }
         Update: {
@@ -96,6 +100,7 @@ export type Database = {
           eval_work_performed?: number | null
           fiscal_year?: string | null
           id?: string
+          is_structured?: boolean
           meeting_type?: string | null
           model_used?: string
           output_big_picture?: Json | null
@@ -106,6 +111,7 @@ export type Database = {
           prompt_name?: string | null
           prompt_text?: string
           prompt_version?: string | null
+          raw_output?: string | null
           transcript_text?: string
         }
         Relationships: []
